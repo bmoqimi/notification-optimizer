@@ -5,11 +5,16 @@ from subprocess import PIPE, Popen
 import time
 import logging
 import multiprocessing
+import os
 
 # global variables
 last_switch_inside_task_group = []
 last_switch_outside_task_group = []
-
+user_has_been_inactive = False
+user_idle_threshold = 300000 # 5 minutes in milliseconds
+noise_collection_time = '3' #seconds
+noise_threshold = 500 # have no idea what this is
+noise_threshold_passed = False
 
 def window_tracker():
     title = ''
@@ -17,12 +22,18 @@ def window_tracker():
     root_check = ''
     members = []
     entry = []
-    members = []
-    entry = []
     last_entry = -1
-
+    global user_has_been_inactive
     while True:
         time.sleep(0.6)
+        inactivity = Popen(['xprintidle'], stdout=PIPE)
+        for timer in inactivity.stdout:
+            if int(timer) > user_idle_threshold:
+                user_has_been_inactive = True
+                logger.debug("User inactivity logged at %d" % int(time.time()))
+            else:
+                user_has_been_inactive = False
+
         root = Popen(['xprop', '-root'], stdout=PIPE)
 
         if root.stdout != root_check:
@@ -43,7 +54,8 @@ def window_tracker():
                             title = z
                             title = title.rstrip()
                         logger.info("Current window title: %s" % title)
-                        members, entry, last_entry = get_windows_groupings(title, int(time.time()), members, entry,  last_entry)
+                        members, entry, last_entry = get_windows_groupings(title, int(time.time()), members, entry,
+                                                                           last_entry)
                         timepoints = calculatepoints(members, last_entry)
                         update_last_switch_events(timepoints, title)
 
@@ -53,22 +65,23 @@ def update_last_switch_events(timepoints, new_window):
     global last_switch_outside_task_group
     sum_points = 0.0
     sum_timepoints = 0.0
+    d = 1.2
     group = []
     for p in timepoints:
-        sum_points += timepoints[p][1]
-        sum_timepoints += timepoints[p][0]
-    #logger.debug("Sum of window points are: %d %d" % sum_points % sum_timepoints)
+        sum_points += int(timepoints[p][1])
+        sum_timepoints += int(timepoints[p][0])
+    logger.debug('Sum of window points are: %6.2f and  %6.2f', sum_points, sum_timepoints )
     for window in timepoints:
-        value = (timepoints[window][1] / sum_points) + (timepoints[window][0] / sum_timepoints)
-        #logger.debug("Total value of " + window + " is: " + value)
-        if value > 0.30:
+        value = (timepoints[window][1] * 100 / sum_points) + (timepoints[window][0] * 100 / sum_timepoints)
+        logger.debug("Total value of '%s' is: %d ", window, value)
+        if value > 30:
             group.append(window)
     if new_window in group:
-        #logger.info("The new window: " + new_window + " belongs to the current task group")
+        logger.info("The new window: %s belongs to the current task group" %new_window)
         last_switch_inside_task_group = [new_window, int(time.time())]
         last_switch_outside_task_group = []
     else:
-        #logger.info("The new window: " + new_window + " DOESN'T belong to the task group")
+        logger.info("The new window: %s  DOESN'T belong to the task group" %  new_window )
         last_switch_outside_task_group = [new_window, int(time.time())]
         last_switch_inside_task_group = []
 
@@ -92,7 +105,7 @@ def get_windows_groupings(window_name, timestamp, members, entry, lastentry):
         if int(entry[1]) < lowerbound:
             lastentry = int(entry[1])
             members.remove(entry)
-            logger.debug("Window: " + entry[0] + " too old, removing from current windows")
+            logger.debug("Window: %s too old, removing from current windows" % entry[0])
     return members, entry, lastentry
 
 
@@ -118,10 +131,11 @@ def calculatepoints(members, lastentry):
         i += 1
     # assign one point for each occurence of the window in focus
     for item in members:
-        logger.debug("Timepoints contains: %d" % timepoints[item[0]][0])
+        #logger.debug("Timepoints of item: %s contains: %d", item[0], timepoints[item[0]][0])
         timepoints[item[0]][1] += 1
         #logger.debug("Window: '{0}' gained '{1}' timepoints and '{2}' points".format(item[0],
         #            timepoints[item[0]][0],timepoints[item[0]][1]))
+    logger.debug(timepoints)
     return timepoints
 
 
@@ -136,9 +150,24 @@ def print_notification(bus, message):
                 'app_name'])
 
 
-def run_struf():glib.MainLoop().run()
+def get_noise_level():
+    redirect_devnull = open(os.devnull,'w')
+    global noise_threshold_passed, noise_threshold, noise_collection_time
+    while True:
+        total_noise = Popen(['soundmeter', '--collect', '--seconds', noise_collection_time],
+                            stdout=PIPE, stderr=redirect_devnull)
+        for noise in total_noise.stdout:
+            if "avg" in noise:
+                noise = int(noise.split(":")[1].rstrip())
+                logger.debug("Noise levels are %d at %d", noise, time.time())
+                if noise > noise_threshold:
+                    noise_threshold_passed = True
+                else:
+                    noise_threshold_passed = False
 
-logging.basicConfig(level=logging.INFO)
+        time.sleep(5)
+
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 loop = DBusGMainLoop(set_as_default=True)
 session_bus = dbus.SessionBus()
@@ -146,9 +175,9 @@ session_bus.add_match_string(
     "type='method_call',interface='org.freedesktop.Notifications',member='Notify',eavesdrop=true")
 session_bus.add_message_filter(print_notification)
 
-p = multiprocessing.Process(target=run_struf())
-p.start()
-thread = multiprocessing.Process(target=window_tracker())
-thread.start()
-
-print "test"
+notification_collector = multiprocessing.Process(target=glib.MainLoop().run)
+notification_collector.start()
+activity_tracker = multiprocessing.Process(target=window_tracker)
+activity_tracker.start()
+noise_tracker = multiprocessing.Process(target=get_noise_level)
+#noise_tracker.start()
