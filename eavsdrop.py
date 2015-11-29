@@ -11,10 +11,25 @@ import os
 last_switch_inside_task_group = []
 last_switch_outside_task_group = []
 user_has_been_inactive = False
-user_idle_threshold = 300000 # 5 minutes in milliseconds
+user_idle_threshold = 3000 #00 # 5 minutes in milliseconds
 noise_collection_time = '3' #seconds
 noise_threshold = 500 # have no idea what this is
 noise_threshold_passed = False
+
+
+def is_voice_playing():
+    count = 0
+    sound_file = Popen('cat /proc/asound/card*/pcm*/sub*/status', shell=True, stdout=PIPE)
+    for line in sound_file.stdout:
+        line = line.split(":")
+        if line[0] == "state":
+            count += 1
+            #logger.debug("line is :%s" % line[1].rstrip().replace(" ",""))
+            if count == 2:
+                if line[1].rstrip().replace(" ","") == "RUNNING": #beware there is a space here
+                    #logger.debug("A sound card is running because %s detected" % line)
+                    return True
+    return False
 
 def window_tracker():
     title = ''
@@ -29,8 +44,11 @@ def window_tracker():
         inactivity = Popen(['xprintidle'], stdout=PIPE)
         for timer in inactivity.stdout:
             if int(timer) > user_idle_threshold:
-                user_has_been_inactive = True
-                logger.debug("User inactivity logged at %d" % int(time.time()))
+                if not is_voice_playing():
+                    user_has_been_inactive = True
+                    logger.debug("User inactivity logged at %d" % int(time.time()))
+                else:
+                    user_has_been_inactive = False
             else:
                 user_has_been_inactive = False
 
@@ -72,9 +90,13 @@ def update_last_switch_events(timepoints, new_window):
         sum_timepoints += int(timepoints[p][0])
     logger.debug('Sum of window points are: %6.2f and  %6.2f', sum_points, sum_timepoints )
     for window in timepoints:
-        value = (timepoints[window][1] * 100 / sum_points) + (timepoints[window][0] * 100 / sum_timepoints)
-        logger.debug("Total value of '%s' is: %d ", window, value)
-        if value > 30:
+        switch_value = timepoints[window][1] * 100 / sum_points
+        time_value =  timepoints[window][0] * 100 / sum_timepoints
+        value = time_value + switch_value
+        logger.debug("Time value of '%s' is: %d and switch value is: %d", window, time_value, switch_value)
+        # each value should at least be bigger than 10% : case => {'chrome': [5, 1], 'gnome-terminal': [7660, 1]}
+        # in the above case switch_value gets 50 but time gets 0. gnome-terminal should not belong to the group
+        if value > 30 and time_value >= 10 and switch_value >= 10:
             group.append(window)
     if new_window in group:
         logger.info("The new window: %s belongs to the current task group" %new_window)
