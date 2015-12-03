@@ -11,10 +11,13 @@ import os
 last_switch_inside_task_group = []
 last_switch_outside_task_group = []
 user_has_been_inactive = False
-user_idle_threshold = 3000 #00 # 5 minutes in milliseconds
+user_idle_threshold = 300000 # 5 minutes in milliseconds
 noise_collection_time = '3' #seconds
 noise_threshold = 500 # have no idea what this is
 noise_threshold_passed = False
+window_grouping_time_range = 300
+
+#TODO: fix timepoints problems
 
 
 def is_voice_playing():
@@ -46,7 +49,7 @@ def window_tracker():
             if int(timer) > user_idle_threshold:
                 if not is_voice_playing():
                     user_has_been_inactive = True
-                    logger.debug("User inactivity logged at %d" % int(time.time()))
+                    #logger.debug("User inactivity logged at %d" % int(time.time()))
                 else:
                     user_has_been_inactive = False
             else:
@@ -109,10 +112,10 @@ def update_last_switch_events(timepoints, new_window):
 
 
 def get_windows_groupings(window_name, timestamp, members, entry, lastentry):
-    window = 600
+    global window_grouping_time_range
     # set higher and lower bounds of the window
     higherbound = timestamp
-    lowerbound = higherbound - window
+    lowerbound = higherbound - window_grouping_time_range
     line = [window_name, timestamp]
     # be prepared for the first entry
     if lastentry == -1:
