@@ -17,8 +17,6 @@ noise_threshold = 500 # have no idea what this is
 noise_threshold_passed = False
 window_grouping_time_range = 300
 
-#TODO: fix timepoints problems
-
 
 def is_voice_playing():
     count = 0
@@ -69,12 +67,12 @@ def window_tracker():
                     if pid != j.split()[2]:
                         pid = j.split()[2]
                         pid = pid.rstrip()
-                        logger.info("Current window PID: %s" % pid)
+                        #logger.debug("Current window PID: %s" % pid)
                         title_pipe = Popen(['ps', '-p', pid, '-o', 'comm='], stdout=PIPE)
                         for z in title_pipe.stdout:
                             title = z
                             title = title.rstrip()
-                        logger.info("Current window title: %s" % title)
+                        #logger.debug("Current window title: %s" % title)
                         members, entry, last_entry = get_windows_groupings(title, int(time.time()), members, entry,
                                                                            last_entry)
                         timepoints = calculatepoints(members, last_entry)
@@ -91,12 +89,12 @@ def update_last_switch_events(timepoints, new_window):
     for p in timepoints:
         sum_points += int(timepoints[p][1])
         sum_timepoints += int(timepoints[p][0])
-    logger.debug('Sum of window points are: %6.2f and  %6.2f', sum_points, sum_timepoints )
+    #logger.debug('Sum of window points are: %6.2f and  %6.2f', sum_points, sum_timepoints )
     for window in timepoints:
         switch_value = timepoints[window][1] * 100 / sum_points
         time_value =  timepoints[window][0] * 100 / sum_timepoints
         value = time_value + switch_value
-        logger.debug("Time value of '%s' is: %d and switch value is: %d", window, time_value, switch_value)
+        #logger.debug("Time value of '%s' is: %d and switch value is: %d", window, time_value, switch_value)
         # each value should at least be bigger than 10% : case => {'chrome': [5, 1], 'gnome-terminal': [7660, 1]}
         # in the above case switch_value gets 50 but time gets 0. gnome-terminal should not belong to the group
         if value > 30 and time_value >= 10 and switch_value >= 10:
@@ -131,6 +129,7 @@ def get_windows_groupings(window_name, timestamp, members, entry, lastentry):
             lastentry = int(entry[1])
             members.remove(entry)
             logger.debug("Window: %s too old, removing from current windows" % entry[0])
+    #logger.debug("These are members: " + str(members))
     return members, entry, lastentry
 
 
@@ -144,16 +143,17 @@ def calculatepoints(members, lastentry):
     # timepoints => {window name -> [timepoints,points] }
     i = 0
     # assign one point for each second that a window was in focus
-    while i < len(members):
-        if i == 0:
-            temp = int(members[i][1]) - lastentry
-            timepoints[members[i][0]] = [temp, 0]
-        else:
-            if members[i][0] in timepoints:
-                timepoints[members[i][0]][0] += int(members[i][1]) - int(members[i - 1][1])
-            else:
-                timepoints[members[i][0]] = [int(members[i][1]) - int(members[i - 1][1]), 0]
-        i += 1
+    length = len(members)
+    for item in members:
+        timepoints[item[0]] = [0,0]
+    if length == 1:
+        temp = int(members[0][1]) - lastentry
+        timepoints[members[0][0]] = [temp, 0]
+    else:
+        while i < length -1:
+            timepoints[members[i][0]][0] += int(members[i + 1][1] - int(members[i][1])  )
+            i += 1
+
     # assign one point for each occurence of the window in focus
     for item in members:
         #logger.debug("Timepoints of item: %s contains: %d", item[0], timepoints[item[0]][0])
