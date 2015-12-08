@@ -4,19 +4,26 @@ from dbus.mainloop.glib import DBusGMainLoop
 from subprocess import PIPE, Popen
 import time
 import logging
-import multiprocessing
+import threading
 import os
+import pynotify
+import sys
+
 
 # global variables
 last_switch_inside_task_group = []
 last_switch_outside_task_group = []
 user_has_been_inactive = False
-user_idle_threshold = 300000 # 5 minutes in milliseconds
+user_idle_threshold = 30000#0 # 5 minutes in milliseconds
 noise_collection_time = '3' #seconds
 noise_threshold = 500 # have no idea what this is
 noise_threshold_passed = False
 window_grouping_time_range = 300
-
+cost_threshold = 100 #smaller than this are showed only
+notification_queue = []
+notification_showing_interval = 3 # seconds of sleeping before checking notification queue
+notifications_to_be_shown = []
+my_app_name = "TestApp"
 
 def is_voice_playing():
     count = 0
@@ -47,7 +54,10 @@ def window_tracker():
             if int(timer) > user_idle_threshold:
                 if not is_voice_playing():
                     user_has_been_inactive = True
-                    #logger.debug("User inactivity logged at %d" % int(time.time()))
+                    logger.debug("User inactivity logged at %d" % int(time.time()))
+                    noti = {'summary':'stuff','app_name':'test','body':'testing'}
+                    notifications_to_be_shown.append(noti)
+                    #test.append(time.time())
                 else:
                     user_has_been_inactive = False
             else:
@@ -172,7 +182,50 @@ def print_notification(bus, message):
         notification = dict([(keys[i], args[i]) for i in range(8)])
         logger.info(
             "New notification arrived with details: " + notification["summary"] + notification["body"] + notification[
-                'app_name'])
+                'app_name'] )
+        if notification['hint'] == my_app_name: #TODO
+            return
+        process_new_notification(notification)
+
+def process_new_notification(notification):
+    global notifications_to_be_shown
+    score = get_current_notification_score(notification)
+    time.sleep(4) #TODO: this is for testing purposes remove later
+    logger.debug("Processing new notification with summary: %s" %notification['summary'])
+    #if score <= cost_threshold:
+    notifications_to_be_shown.append(notification)
+    #else:
+    #    queue_notification(notification)
+
+
+def get_current_notification_score(notification):
+    return 100
+
+
+def show_notification():
+    if not pynotify.init(my_app_name):
+        sys.exit(1)
+    while True:
+        global notifications_to_be_shown
+        #logger.debug("Checking for new notifications .... %s" % str(user_has_been_inactive))
+        if len(notifications_to_be_shown) != 0:
+            logger.debug("New notification found... will process it now")
+            notification = notifications_to_be_shown[0]
+            title = notification['summary']
+            body = notification['body']
+            sender = my_app_name
+            #actions: TODO: fill this with something the user can click on
+            n = pynotify.Notification(title, body, sender)
+            #logger.debug("Going to show notification with summary: %s" %title)
+            n.show()
+            notifications_to_be_shown.remove(notification)
+            time.sleep(notification_showing_interval)
+        else:
+            time.sleep(notification_showing_interval)
+
+def queue_notification(notification):
+    global notification_queue
+    notification_queue.append(notification)
 
 
 def get_noise_level():
@@ -192,17 +245,33 @@ def get_noise_level():
 
         time.sleep(5)
 
+#def listen_to_dbus():
+
+
+glib.threads_init()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-loop = DBusGMainLoop(set_as_default=True)
-session_bus = dbus.SessionBus()
-session_bus.add_match_string(
-    "type='method_call',interface='org.freedesktop.Notifications',member='Notify',eavesdrop=true")
-session_bus.add_message_filter(print_notification)
 
-notification_collector = multiprocessing.Process(target=glib.MainLoop().run)
-notification_collector.start()
-activity_tracker = multiprocessing.Process(target=window_tracker)
+#notification_collector = threading.Thread(target=listen_to_dbus)
+threading._start_new_thread(show_notification, ())
+
+notifier = threading.Thread(target=show_notification)
+notifier.start()
+activity_tracker = threading.Thread(target=window_tracker)
 activity_tracker.start()
-noise_tracker = multiprocessing.Process(target=get_noise_level)
+#noise_tracker = threading.Thread(target=get_noise_level)
 #noise_tracker.start()
+#notification_collector.start()
+#threading._start_new_thread(listen_to_dbus, ())
+#b = threading._start_new_thread(show_notification, ())
+#c = threading._start_new_thread(window_tracker, ())
+#threading._start_new_thread(get_noise_level, ())
+if __name__ == "__main__":
+    loop = DBusGMainLoop(set_as_default=True)
+    logger.debug("Now initializing Dbus for new notifications")
+    session_bus = dbus.SessionBus()
+    session_bus.add_match_string(
+        "type='method_call',interface='org.freedesktop.Notifications',member='Notify',eavesdrop=true")
+    session_bus.add_message_filter(print_notification)
+    glib.MainLoop().run()
+    logger.debug("Now listening to Dbus for new notifications")
