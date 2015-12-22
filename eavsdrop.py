@@ -75,6 +75,7 @@ def is_voice_playing():
                     return True
     return False
 
+
 def window_tracker():
     title = ''
     pid = 0
@@ -142,7 +143,7 @@ def update_last_switch_events(timepoints, new_window):
         sum_points += 1
     if sum_timepoints == 0:
         sum_timepoints += 1
-    
+
     for window in timepoints:
         switch_value = timepoints[window][1] * 100 / sum_points
         time_value =  timepoints[window][0] * 100 / sum_timepoints
@@ -478,11 +479,17 @@ def compare_notification_keys(noti1, noti2, key):
 
 
 glib.threads_init()
+home_dir = os.environ['HOME']
+config_dir = home_dir + "/.noptimizer"
+if not os.path.exists(config_dir):
+    os.mkdir(config_dir)
+
+logfile = config_dir + "output.log"
 #logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(message)s')
-fh = logging.FileHandler('output.log')
+fh = logging.FileHandler(logfile)
 fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
@@ -495,8 +502,13 @@ threads = []
 initialize()
 #notification_collector = threading.Thread(target=listen_to_dbus)
 #threading._start_new_thread(show_notification, ())
+
+db_file = config_dir + "/noptimizer.db"
 try:
-    db = database.Database(False)
+    if os.path.exists(db_file):
+        db = database.Database(False, db_file)
+    else:
+        db = database.Database(True, db_file)
 except Exception:
     traceback.print_exc()
     logger.debug("Database initialization failed in Mainthread")

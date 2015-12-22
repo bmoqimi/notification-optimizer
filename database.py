@@ -5,8 +5,9 @@ import logging
 
 class Database:
 
-    def __init__(self,first_run):
+    def __init__(self,first_run, db_file):
 
+        self.dbPath = db_file
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(message)s')
@@ -47,7 +48,6 @@ class Database:
 
     def getConnection(self):
         try:
-            self.dbPath = 'database.db'
             self.con = lite.connect(self.dbPath)
             #self.logger.debug("connection to database created")
         except lite.Error, e:
