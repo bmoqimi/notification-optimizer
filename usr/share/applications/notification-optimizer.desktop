@@ -1,6 +1,7 @@
 [Desktop Entry]
 Name=Notification Optimizer
 Comment=Intelligent notification manager
+Icon=/usr/share/notification-optimizer/icon.ico
 Exec=/usr/bin/notification-optimizer
 Type=Application
 Categories=Development;
