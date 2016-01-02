@@ -1,0 +1,11 @@
+Package: notification-optimizer
+Version: 0.01
+Architecture: all
+Maintainer: your name<your mail id>
+Installed-Size: 2
+Section: extras
+Depends: python-appindicator, x11-utils (>= 7~), xprintidle (>= 0.1~), xfce4-notifyd(= 0.2.4-3-optimized)
+Description: Intelligent notification manager
+ This application uses state of the art academic research to reduce the 
+ incurred cost of notifications on the user by Deferring them to a later
+ possibly less costly time. 

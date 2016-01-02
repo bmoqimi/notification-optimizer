@@ -1,0 +1,7 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Notification-Optimizer
+Upstream-Contact: Babak Moghimi, <babak@moghimi.de>
+
+Files: *
+Copyright: 2015, Babak Moghimi, <babak@moghimi.de>
+License: (GPL-3)

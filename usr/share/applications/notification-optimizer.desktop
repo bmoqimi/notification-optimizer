@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Notification Optimizer
+Comment=Intelligent notification manager
+Exec=/usr/bin/notification-optimizer
+Type=Application
+Categories=Development;
+StartupNotify=true
+

@@ -1,0 +1,22 @@
+cat /proc/asound/card*/pcm*/sub*/status 
+ 
+xprintidle 
+ 
+xprop 
+ 
+python 
+ 
+Dbus , python-dbus 
+ 
+ 
+### 
+On Debian/Ubuntu: 
+$ sudo apt-get install portaudio19-dev python-dev alsa-utils  
+On Fedora/RHEL: 
+$ sudo yum install portaudio-devel python-devel alsa-utils 
+ 
+pip install soundmeter 
+#### 
+ 
+xwininfo -id $(xdotool getactivewindow) # to get the geometry of current window 
+

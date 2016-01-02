@@ -1,0 +1,9 @@
+#!/bin/bash
+
+SCRIPT="/usr/share/notification-optimizer/eavesdrop.py"
+PYTHON=$(type -P python2.7)
+if [ -z "$PYTHON" ];then
+	PYTHON=$(type -P python2.6)
+fi
+
+$PYTHON $SCRIPT

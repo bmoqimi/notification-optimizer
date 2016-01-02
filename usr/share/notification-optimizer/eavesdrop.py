@@ -36,7 +36,7 @@ notification_showing_interval = 3 # seconds of sleeping before dumping the to-be
 queue_check_interval = 120 # seconds after which the queue is re-evaluated
 notifications_to_be_shown = [] # ready notifications are stored here to be picked up later
 focused_application_categories = ["development", "java", "utility"] # TODO: Complete this list
-my_app_name = "TestApp"
+my_app_name = "noptimizer"
 discard_notification_action = "discard"
 accept_notification_action = "accept"
 open_notification_action = "open"
@@ -484,7 +484,7 @@ config_dir = home_dir + "/.noptimizer"
 if not os.path.exists(config_dir):
     os.mkdir(config_dir)
 
-logfile = config_dir + "output.log"
+logfile = config_dir + "/output.log"
 #logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
